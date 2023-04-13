@@ -1,0 +1,220 @@
+// April 12th, Amar
+// Changes: 
+// Added while loop for continuous stabilization
+// If statement brace was not properly closed in previous codes
+// Delay for 5 ms at the end of stabilize to settle servo motor 
+// angleZ() instead of angleY()
+
+#include <MPU6050_light.h>
+#include <Wire.h>
+#include <Servo.h>
+
+#define triggerPinLeft 11
+#define echoPinLeft 2
+
+#define triggerPinFront 13
+#define echoPinFront 3
+
+const int liftFanPin = 5;
+const int thrustFanPin = 6;
+
+const int servoPin = 9;
+Servo myServo;
+
+float referenceAngle = 0.0;
+const int threshold_front = 40;
+const int threshold_side = 31;
+
+int value_front = 0;
+int value_side = 0;
+// MPU object
+MPU6050 mpu(Wire);
+// variables to store IMU data
+float rollValue; // don't need 
+float pitchValue; // don't need 
+float yawValue;
+
+float gyroX = 0.0;
+float gyroY = 0.0;
+float gyroZ = (Wire.read() << 8 | Wire.read()) / 131.0;
+//gyroZ = gyroZ + 0.79; // GyroErrorZ ~ (-0.8)
+//float gyroAngleY = gyroAngleY + GyroY * elapsedTime;
+//float yaw =  yaw + GyroZ * elapsedTime;
+
+float accelX = 0.0;
+float accelY = 0.0;
+float accelZ = 0.0;
+
+struct AccelData {
+  int16_t x;
+  int16_t y;
+  int16_t z;
+};
+
+struct GyroData {
+  int16_t x;
+  int16_t y;
+  int16_t z;
+};
+
+// variable to store the reference angle for stabilization
+float refAngle = 0.0;
+
+// Function prototypes
+float getDistance(int triggerPin, int echoPin);
+float getAngle();
+void stabilize();
+
+
+void setup() {
+
+  Serial.begin(9600);
+ 
+  pinMode(triggerPinLeft, OUTPUT);
+  pinMode(echoPinLeft, INPUT);
+
+  pinMode(triggerPinFront, OUTPUT);
+  pinMode(echoPinFront, INPUT);
+
+  digitalWrite(liftFanPin, LOW);
+  digitalWrite(thrustFanPin, LOW);
+
+  myServo.attach(servoPin);
+  myServo.write(90);
+
+  Wire.begin();  
+  byte status = mpu.begin();
+  
+  Wire.setWireTimeout(3000, true);
+  Serial.println(F("Calculating offsets, do not move MPU6050"));
+  delay(1000);
+  mpu.calcOffsets(true,true); // gyro and accelero
+  Serial.println("Done!\n");
+  refAngle = getAngle(); // Get the initial reference angle
+
+  delay(2000); // Wait for sensors to settle 
+}
+
+
+void loop() {
+  mpu.update();
+  digitalWrite(liftFanPin, HIGH);
+  analogWrite(thrustFanPin,185); // Set the thrust fan speed to halfway
+
+  while(true) { // keep stabilizing until hovecraft is turned off 
+  mpu.update();
+    stabilize(); // Call the stabilize function ///// SHOULD BE IN A WHILE LOOP TO KEEP STABILIZING CAUSE DOING IT ONCE 
+    float Amar = getAngle(); // Amar is yaw ?
+    value_front = getDistance(triggerPinFront, echoPinFront);
+    value_side = getDistance(triggerPinLeft, echoPinLeft);
+  Serial.print("Front = ");
+  Serial.println(value_front);
+  Serial.print("Side = ");
+  Serial.println(value_side);
+
+    if (value_front < threshold_front) {
+      mpu.update();
+      digitalWrite(liftFanPin, LOW);
+      digitalWrite(thrustFanPin, LOW);
+      delay(2000);
+      value_side = getDistance(triggerPinLeft, echoPinLeft);
+      // Obstacle detected, avoid it
+      if (value_side > threshold_side) { // turn left
+         digitalWrite(liftFanPin, HIGH);
+         float targetAngle = Amar + 90;
+         while (abs(Amar - targetAngle) > 5) {
+            myServo.write(10);
+            Amar = getAngle();
+            if (abs(Amar - targetAngle + 360) < abs(Amar - targetAngle)) {
+              targetAngle -= 360;
+             }
+           }
+           myServo.write(90); // Keep servo straight (neutral)
+           referenceAngle += 90;
+           if (referenceAngle > 179) {
+        referenceAngle -= 360;
+           }
+  }   
+
+     else if (value_side < threshold_side) { // turn right
+        digitalWrite(liftFanPin, HIGH);
+        float targetAngle = Amar - 90;
+
+     while (abs(Amar - targetAngle) > 5) {
+         myServo.write(170);
+         Amar = getAngle();
+        if (abs(Amar - targetAngle - 360) < abs(Amar - targetAngle)) {
+          targetAngle += 360;
+       }
+      }
+  myServo.write(90); // Keep servo straight (neutral)
+  referenceAngle -= 90;
+  if (referenceAngle < -179) {
+     referenceAngle += 360;
+      }
+}
+
+
+    // No obstacle detected, keep going straight 
+    else {
+      myServo.write(90);
+      //stabilize();
+    }
+  
+  }
+
+
+}
+
+// Function to calculate the distance from the ultrasonic sensor
+float getDistance(int triggerPin, int echoPin) {
+  long duration, distance;
+
+  digitalWrite(triggerPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(triggerPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(triggerPin, LOW);
+
+  duration = pulseIn(echoPin, HIGH);
+  distance = (duration / 2) * 0.0343;
+  return distance;
+}
+
+float getAngle() {
+  float yaw = mpu.getAngleZ(); // Get yaw from the IMU
+  float relativeYaw = yaw - referenceAngle;
+  if (relativeYaw > 179) {
+    relativeYaw -= 360;
+  } else if (relativeYaw < -179) {
+    relativeYaw += 360;
+  }
+  return relativeYaw;
+}
+
+
+// Function to stabilize the hovercraft using the servo motor
+void stabilize() {
+
+  if(getAngle() > -50 && getAngle()< 50){
+    float Gabrielle = 89 + getAngle();
+    //Serial.println(Gabrielle);
+    int Nadim = Gabrielle;
+    myServo.write(Nadim);
+    delay(100);
+  }
+  else if ( getAngle() > 130){
+    float Gabrielle = 90  - (180-getAngle());
+    //Serial.println(Gabrielle);
+    int Nadim = Gabrielle;
+    myServo.write(Nadim);
+    delay(100);
+  }
+  else if ( getAngle() < -130){
+    float Gabrielle = 90 + (180 + getAngle());
+    //Serial.println(Gabrielle);
+    int Nadim = Gabrielle;
+    myServo.write(Nadim);
+    delay(100); // delay by few milliseconds to avoid overwhelming the servo motor with too many commands too quicky 
+  }
+}
