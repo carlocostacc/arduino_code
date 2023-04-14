@@ -1,11 +1,10 @@
-
-// April 13th, Simon
-// Changes: 
+// April 13th, Jeffrey
+// Changes:
 // Added while loop for continuous stabilization
 // If statement brace was not properly closed in previous codes
-// Delay for 5 ms at the end of stabilize to settle servo motor 
+// Delay for 5 ms at the end of stabilize to settle servo motor
 // angleZ() instead of angleY()
-// 2:55 PM last changed 
+// 2:55 PM last changed
 
 #include <MPU6050_light.h>
 #include <Wire.h>
@@ -32,8 +31,8 @@ int value_side = 0;
 // MPU object
 MPU6050 mpu(Wire);
 // variables to store IMU data
-float rollValue; // don't need 
-float pitchValue; // don't need 
+float rollValue;   // don't need
+float pitchValue;  // don't need
 float yawValue;
 
 float gyroX = 0.0;
@@ -75,7 +74,7 @@ void turnLeft();
 void setup() {
 
   Serial.begin(9600);
- 
+
   pinMode(triggerPinLeft, OUTPUT);
   pinMode(echoPinLeft, INPUT);
 
@@ -88,135 +87,113 @@ void setup() {
   myServo.attach(servoPin);
   myServo.write(90);
 
-  Wire.begin();  
+  Wire.begin();
   byte status = mpu.begin();
-  
+
   Wire.setWireTimeout(3000, true);
   Serial.println(F("Calculating offsets, do not move MPU6050"));
   delay(1000);
-  mpu.calcOffsets(true,true); // gyro and accelero
+  mpu.calcOffsets(true, true);  // gyro and accelero
   Serial.println("Done!\n");
-  refAngle = getAngle(); // Get the initial reference angle
+  refAngle = getAngle();  // Get the initial reference angle
 
-  delay(2000); // Wait for sensors to settle 
+  delay(2000);  // Wait for sensors to settle
 }
 
 
 void loop() {
   mpu.update();
-  digitalWrite(liftFanPin, HIGH);
-  analogWrite(thrustFanPin,185); // Set the thrust fan speed to halfway
-
-  while(true) { // keep stabilizing until hovecraft is turned off 
-  mpu.update();
-    stabilize(); // Call the stabilize function ///// SHOULD BE IN A WHILE LOOP TO KEEP STABILIZING CAUSE DOING IT ONCE 
-    float Amar = getAngle(); // Amar is yaw ?
-    value_front = getDistance(triggerPinFront, echoPinFront);
-    value_side = getDistance(triggerPinLeft, echoPinLeft);
-    Serial.println(getAngle());
-  // Serial.print("Front = ");
-  // Serial.println(value_front);
+  startUp();
+  stabilize();  // Call the stabilize function ///// SHOULD BE IN A WHILE LOOP TO KEEP STABILIZING CAUSE DOING IT ONCE
+  value_front = getDistance(triggerPinFront, echoPinFront);
+  Serial.print("Front = ");
+  Serial.println(value_front);
   // Serial.print("Side = ");
   // Serial.println(value_side);
 
-    while (value_front <= threshold_front) {
-      mpu.update();
-      shutDown();
-      delay(3000);
-      value_side = getDistance(triggerPinLeft, echoPinLeft);
-      Serial.println(getAngle());
-      // Obstacle detected, avoid it
-      if (value_side > threshold_side) { // turn left
+  while (value_front <= threshold_front) {
+    shutDown();
+    //mpu.update();
+    delay(3000);
+    value_side = getDistance(triggerPinLeft, echoPinLeft);
+    // Obstacle detected, avoid it
+    if (value_side > threshold_side) {  // turn left
       int YAW = getAngle();
-         if(-20<YAW && YAW<20){
-           turnLeft();
-           while(YAW <= 70){
-             YAW = getAngle();
-             Serial.println(getAngle());
-           }  
-          shutDown();
-          delay(3000);
-         }
-        else if(70<YAW && YAW<110){
-           turnLeft();
-           while(YAW <= 160){
-             YAW = getAngle();
-             Serial.println(getAngle());
-           }  
-          shutDown();
-          delay(3000);
-         }
-        else if(150<YAW && YAW<-150){
-           turnLeft();
-           while(!(-105<= YAW && YAW < 0)){
-             YAW = getAngle();
-             Serial.println(getAngle());
-           }  
-          shutDown();
-          delay(3000);
-         }
-         else if(-70<YAW && YAW<-110){
-           turnLeft();
-           while(YAW <=-15){
-             YAW = getAngle();
-             Serial.println(getAngle());
-           }  
-          shutDown();
-          delay(3000);
-         }
+      Serial.println(YAW);
+      if (-45<= YAW && YAW < 45) {
+        turnLeft();
+        while (YAW <= 70) {
+          YAW = getAngle();
+        }
+        shutDown();
+        delay(3000);
+      } else if (45 <= YAW && YAW < 135) {
+        turnLeft();
+        while (YAW <= 160) {
+          YAW = getAngle();
+        }
+        shutDown();
+        delay(3000);
+      } else if (135 <= YAW || YAW < -135) {
+        turnLeft();
+        while (!(-105 <= YAW && YAW < 0)) {
+          YAW = getAngle();
+        }
+        shutDown();
+        delay(3000);
+      } else if (-45 > YAW && YAW >= -135) {
+        turnLeft();
+        while (YAW <= -15) {
+          YAW = getAngle();
+        }
+        shutDown();
+        delay(3000);
+      } else {
+        Serial.println("Nothing to apply");
+      }
 
-  }   
-
-     else if (value_side < threshold_side) { // turn right
-        int YAW = getAngle();
-         if(-45<YAW && YAW<45){
-           turnRight();
-           while(YAW >= -70){
-             YAW = getAngle();
-             Serial.println(getAngle());
-           }  
-          shutDown();
-          delay(3000);
-         }
-        else if(60<YAW && YAW<125){
-           turnRight();
-           while(YAW >= 15){
-             YAW = getAngle();
-             Serial.println(getAngle());
-           }  
-          shutDown();
-          delay(3000);
-         }
-        else if(135<YAW && YAW<-135){
-           turnRight();
-           while(!(YAW > 0 && YAW <= 105)){
-             YAW = getAngle();
-             Serial.println(getAngle());
-           }  
-          shutDown();
-          delay(3000);
-         }
-         else if(-50<YAW && YAW<-130){
-           turnLeft();
-           while(YAW <=-15){
-             YAW = getAngle();
-             Serial.println(getAngle());
-           }  
-          shutDown();
-          delay(3000);
-         }
-         
-  }  
-     
-      myServo.write(90);
-      digitalWrite(liftFanPin, HIGH );
-      analogWrite(thrustFanPin, 210);
-      Serial.println(getAngle());
+    } else {  // turn right
+      int YAW = getAngle();
+      Serial.println(YAW);
+      if (-45 <= YAW && YAW <=45) {
+        turnRight();
+        while (YAW >= -70) {
+          YAW = getAngle();
+        }
+        shutDown();
+        delay(3000);
+      } else if (45 < YAW && YAW <= 135) {
+        turnRight();
+        while (YAW >= 15) {
+          YAW = getAngle();
+        }
+        shutDown();
+        delay(3000);
+      } else if (135 <= YAW || YAW < -135) {
+        turnRight();
+        while (!(YAW > 0 && YAW <= 105)) {
+          YAW = getAngle();
+        }
+        shutDown();
+        delay(3000);
+      } else if (-45 > YAW && YAW >= -135) {
+        turnLeft();
+        while (YAW <= -15) {
+          YAW = getAngle();
+        }
+        shutDown();
+        delay(3000);
+      } else {
+        Serial.println("Nothing to apply");
+      }
     }
-  
+    value_front = getDistance(triggerPinFront, echoPinFront);
   }
-
 }
+
+
+
+
 
 
 
@@ -244,47 +221,45 @@ float getAngle() {
 // Function to stabilize the hovercraft using the servo motor
 void stabilize() {
 
-  if(getAngle() > -50 && getAngle()< 50){
+  if (getAngle() > -50 && getAngle() < 50) {
     float Gabrielle = 89 + getAngle();
     //Serial.println(Gabrielle);
     int Nadim = Gabrielle;
     myServo.write(Nadim);
-    delay(100);
-  }
-  else if ( getAngle() > 130){
-    float Gabrielle = 90  - (180-getAngle());
+    delay(10);
+  } else if (getAngle() > 130) {
+    float Gabrielle = 90 - (180 - getAngle());
     //Serial.println(Gabrielle);
     int Nadim = Gabrielle;
     myServo.write(Nadim);
-    delay(100);
-  }
-  else if ( getAngle() < -130){
+    delay(10);
+  } else if (getAngle() < -130) {
     float Gabrielle = 90 + (180 + getAngle());
     //Serial.println(Gabrielle);
     int Nadim = Gabrielle;
     myServo.write(Nadim);
-    delay(100); // delay by few milliseconds to avoid overwhelming the servo motor with too many commands too quicky 
+    delay(10);  // delay by few milliseconds to avoid overwhelming the servo motor with too many commands too quicky
   }
 }
 
-void shutDown(){
+void shutDown() {
   digitalWrite(liftFanPin, LOW);
   digitalWrite(thrustFanPin, LOW);
 }
 
-void startUp(){
+void startUp() {
   digitalWrite(liftFanPin, HIGH);
-  analogWrite(thrustFanPin,185); 
+  analogWrite(thrustFanPin, 185);
 }
 
-void turnRight(){
-  digitalWrite(liftFanPin, HIGH );
+void turnRight() {
+  digitalWrite(liftFanPin, HIGH);
   analogWrite(thrustFanPin, 185);
   myServo.write(155);
 }
 
-void turnLeft(){
-  digitalWrite(liftFanPin, HIGH );
+void turnLeft() {
+  digitalWrite(liftFanPin, HIGH);
   analogWrite(thrustFanPin, 185);
   myServo.write(25);
 }
