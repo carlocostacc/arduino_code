@@ -24,7 +24,7 @@ const int servoPin = 9;
 Servo myServo;
 
 const int threshold_front = 20;
-const int threshold_side = 40;
+const int threshold_side = 42;
 
 int value_front = 0;
 int value_side = 0;
@@ -57,8 +57,8 @@ void rotateServoRight();
 void rotateServoLeft();
 void turnRight(float initialYAW);
 void turnLeft(float initialYAW);
-boolean isPanic();
-bool isRotating(float initialYAW, bool isRotatingRight)
+boolean isPanic(float previousyaw);
+bool isRotating(float initialYAW, bool isRotatingRight);
 
 
 void setup() {
@@ -120,10 +120,10 @@ void loop() {
     }
     
     value_front = getDistance(triggerPinFront, echoPinFront);
-    Serial.print("Front = ");
-    Serial.println(value_front);
-    Serial.print("Side = ");
-    Serial.println(value_side);
+//    Serial.print("Front = ");
+//    Serial.println(value_front);
+//    Serial.print("Side = ");
+//    Serial.println(value_side);
   }
   else{
       // go straight
@@ -166,11 +166,11 @@ void stabilize() {
     delay(10);
   } else if (getAngle() > 50 && getAngle() < 130){
     float angle = getAngle();
-    myServo.write(angle);
+    myServo.write(90);
     delay(10);
   }else if(getAngle() < -50 && getAngle() >-130){
     float angle = getAngle();
-    myServo.write(180 + getAngle());
+    myServo.write(90);
     delay(10);
   }else if (getAngle() >= 130) {
     float angle = 90 - (180 - getAngle());
@@ -185,6 +185,7 @@ void stabilize() {
 }
 
 void shutDown() {
+  Serial.println("SHUT DOWN!");
   digitalWrite(liftFanPin, LOW);
   digitalWrite(thrustFanPin, LOW);
 }
@@ -196,14 +197,14 @@ void startUp() {
 
 void rotateServoRight() {
   analogWrite(liftFanPin, 255);
-  analogWrite(thrustFanPin, 255);
-  myServo.write(170);
+  analogWrite(thrustFanPin, 185);
+  myServo.write(160);
 }
 
 void rotateServoLeft() {
   analogWrite(liftFanPin, 255);
-  analogWrite(thrustFanPin, 255);
-  myServo.write(10);
+  analogWrite(thrustFanPin, 185);
+  myServo.write(20);
 }
 
 void Go_Straight(float distance){
@@ -222,12 +223,19 @@ void Go_Straight(float distance){
     }
 }
 
-boolean isPanic() {
-  return mpu.getAccAngleX() < 0.02 && mpu.getAccAngleY() < 0.02;
+boolean isPanic(float previousyaw) {
+  Serial.println("-----acc values------");
+  Serial.println(getAngle());
+  Serial.println("---------------------");
+  
+  return abs(getAngle() - previousyaw) <= 1;
 }
 
 bool isRotating(float initialYAW, bool isRotatingRight) {
   float YAW = getAngle();
+  Serial.println("isRotating");
+  Serial.println(initialYAW);
+  Serial.println(YAW);
   if (-45 <= initialYAW && initialYAW < 45) {
     return isRotatingRight ? YAW >= -70 : YAW <= 70;
   } else if (45 <= initialYAW && initialYAW < 135) {
@@ -235,7 +243,7 @@ bool isRotating(float initialYAW, bool isRotatingRight) {
   } else if (135 <= initialYAW || initialYAW < -135) {
     return isRotatingRight ? !(YAW > 0 && YAW <= 105) : !(-105 <= YAW && YAW < 0);
   } else if (-45 > initialYAW && initialYAW >= -135) {
-    return isRotatingRight ? YAW <= -160 : YAW <= -15;
+    return isRotatingRight ? YAW >= -160 : YAW <= -15;
   }
   return false;
 }
@@ -244,15 +252,19 @@ void turnRight(float initialYAW) {
   float YAW = initialYAW;
   rotateServoRight();
   long int stuckStartTime = millis();
-  bool panic = false;
   while (isRotating(initialYAW, true)) {
-      if (isPanic()) {
-        if (millis() - stuckStartTime > 2000) {
+      if (isPanic(YAW)) {
+        Serial.println("Panic!!!! ");
+        Serial.println(millis() - stuckStartTime);
+        if (millis() - stuckStartTime > 3000) {
+          Serial.println("BREAKKKK");
           break;
         }
       } else {
         stuckStartTime = millis();
+        YAW = getAngle();
       }
+      
   }
   shutDown();
   delay(3000);
@@ -262,15 +274,19 @@ void turnLeft(float initialYAW) {
   float YAW = initialYAW;
   rotateServoLeft();
   long int stuckStartTime = millis();
-  bool panic = false;
   while (isRotating(initialYAW, false)) {
-      if (isPanic()) {
-        if (millis() - stuckStartTime > 2000) {
+      if (isPanic(YAW)) {
+        Serial.println("Panic!!!! ");
+        Serial.println(millis() - stuckStartTime);
+        if (millis() - stuckStartTime > 3000) {
+          Serial.println("BREAKKKK");
           break;
         }
       } else {
         stuckStartTime = millis();
+        YAW = getAngle();
       }
+      
   }
   shutDown();
   delay(3000);
