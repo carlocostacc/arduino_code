@@ -23,10 +23,10 @@ const int thrustFanPin = 6;
 const int servoPin = 9;
 Servo myServo;
 
-const int threshold_front = 20;
+const float threshold_front = 20.0;
 const float threshold_side = 40.0;
 
-int value_front = 0;
+float value_front = 0;
 float value_side = 0.0;
 // MPU object
 MPU6050 mpu(Wire);
@@ -91,7 +91,6 @@ void setup() {
 
 
 void loop() {
-  mpu.update();
   stabilize();  // Call the stabilize function ///// SHOULD BE IN A WHILE LOOP TO KEEP STABILIZING CAUSE DOING IT ONCE
   value_front = getDistance(triggerPinFront, echoPinFront);
   value_side = getDistance(triggerPinLeft, echoPinLeft);
@@ -166,11 +165,11 @@ void stabilize() {
     delay(10);
   } else if (getAngle() > 50 && getAngle() < 130){
     float angle = getAngle();
-    myServo.write(90);
+    myServo.write(angle);
     delay(10);
   }else if(getAngle() < -50 && getAngle() >-130){
     float angle = getAngle();
-    myServo.write(90);
+    myServo.write(180-angle);
     delay(10);
   }else if (getAngle() >= 130) {
     float angle = 90 - (180 - getAngle());
@@ -195,15 +194,15 @@ void startUp() {
 }
 
 void rotateServoRight() {
-  analogWrite(liftFanPin, 255);
+  analogWrite(liftFanPin, 225);
   analogWrite(thrustFanPin, 185);
-  myServo.write(170);
+  myServo.write(160);
 }
 
 void rotateServoLeft() {
-  analogWrite(liftFanPin, 255);
+  analogWrite(liftFanPin, 225);
   analogWrite(thrustFanPin, 185);
-  myServo.write(10);
+  myServo.write(20);
 }
 
 void Go_Straight(float distance){
@@ -212,11 +211,7 @@ void Go_Straight(float distance){
     Serial.println("slowing down");
     analogWrite(liftFanPin, 0);
     delay(500);
-  }
-  else if (distance <= 65 && mpu.getAccAngleX() < 0.5){
-    startUp();
-  }
-  else{
+  } else{
     // puts every thing on max settings
     startUp();
     }
