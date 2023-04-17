@@ -1,10 +1,11 @@
-// April 13th, Jeffrey
+// April 15th, Amar
 // Changes:
 // Added while loop for continuous stabilization
 // If statement brace was not properly closed in previous codes
 // Delay for 5 ms at the end of stabilize to settle servo motor
 // angleZ() instead of angleY()
-// 2:55 PM last changed
+// 5:10 PM last changed
+// More preferable code that Simon wants to change 
 
 #include <MPU6050_light.h>
 #include <Wire.h>
@@ -23,8 +24,8 @@ const int thrustFanPin = 6;
 const int servoPin = 9;
 Servo myServo;
 
-const int threshold_front = 20;
-const int threshold_side = 42;
+const int threshold_front = 30 ;
+const int threshold_side = 50;
 
 int value_front = 0;
 int value_side = 0;
@@ -34,6 +35,7 @@ MPU6050 mpu(Wire);
 float rollValue;   // don't need
 float pitchValue;  // don't need
 float yawValue;
+
 
 float gyroX = 0.0;
 float gyroY = 0.0;
@@ -49,7 +51,7 @@ float refAngle = 0.0;
 
 // Function prototypes
 float getDistance(int triggerPin, int echoPin);
-float getAngle();
+int getAngle();
 void stabilize();
 void shutDown();
 void startUp();
@@ -91,20 +93,16 @@ void setup() {
 
 
 void loop() {
+  
   mpu.update();
   stabilize();  // Call the stabilize function ///// SHOULD BE IN A WHILE LOOP TO KEEP STABILIZING CAUSE DOING IT ONCE
   value_front = getDistance(triggerPinFront, echoPinFront);
   value_side = getDistance(triggerPinLeft, echoPinLeft);
-  Serial.print("outside");
-  Serial.print("Front = ");
-  Serial.println(value_front);
-   Serial.print("Side = ");
-   Serial.println(value_side);
-
+  print(value_front, value_side);
   if (value_front <= threshold_front) {
     shutDown();
     //mpu.update();
-    delay(3000);
+    delay(300);
     value_side = getDistance(triggerPinLeft, echoPinLeft);
     // Obstacle detected, avoid it
     if (value_side > threshold_side) {  // turn left
@@ -120,10 +118,7 @@ void loop() {
     }
     
     value_front = getDistance(triggerPinFront, echoPinFront);
-//    Serial.print("Front = ");
-//    Serial.println(value_front);
-//    Serial.print("Side = ");
-//    Serial.println(value_side);
+
   }
   else{
       // go straight
@@ -150,38 +145,54 @@ float getDistance(int triggerPin, int echoPin) {
   return distance;
 }
 
-float getAngle() {
+int getAngle() {
   mpu.update();
-  return mpu.getAngleZ();
+  float angle = (mpu.getAngleZ());
+  //angle = (int)angle%360;
+  if(angle < 0){
+    angle = 360 + angle;
+    }
+  return (angle);
 }
 
 
 // Function to stabilize the hovercraft using the servo motor
 void stabilize() {
-
-  if (getAngle() >= -50 && getAngle() <= 50) {
-    float angle = 89 + getAngle();
-    //Serial.println(angle);
+  Serial.println(getAngle());
+  if (getAngle() >= 300) {
+    float angle = 90 -(360- getAngle());
+    //angle = int(angle)%360;
+    Serial.println("Stabilize 0");
     myServo.write(angle);
     delay(10);
-  } else if (getAngle() > 50 && getAngle() < 130){
-    float angle = getAngle();
-    myServo.write(90);
+  }else if (getAngle() <= 60) {
+    float angle = 90 + getAngle();
+    //angle = int(angle)%360;
+    Serial.println("Stabilize 0");
+    myServo.write(angle);
     delay(10);
-  }else if(getAngle() < -50 && getAngle() >-130){
+  } else if (getAngle() > 60 && getAngle() < 120){
     float angle = getAngle();
-    myServo.write(90);
+    //angle = int(angle)%360;
+    Serial.println("Stabilize 90");
+    myServo.write(angle);
     delay(10);
-  }else if (getAngle() >= 130) {
+  }else if(getAngle() < 300 && getAngle() >240){
+    float angle = getAngle();
+    //angle = int(angle)%360;
+    angle = 180 - (360 - angle);
+    Serial.println("Stabilize -90");
+    myServo.write(angle);
+    delay(10);
+  }else if (getAngle() <= 240 && getAngle() >= 120) {
     float angle = 90 - (180 - getAngle());
+    //angle = int(angle)%360;
     //Serial.println(angle);
+    Serial.println("Stabilize 180");
     myServo.write(angle);
     delay(10);
-  } else if (getAngle() <= -130) {
-    float angle  = 90 + (180 + getAngle());
-    myServo.write(angle);
-    delay(10);  // delay by few milliseconds to avoid overwhelming the servo motor with too many commands too quicky
-  }
+    }
+
 }
 
 void shutDown() {
@@ -192,30 +203,26 @@ void shutDown() {
 
 void startUp() {
   analogWrite(liftFanPin, 255);
-  analogWrite(thrustFanPin, 230);
+  analogWrite(thrustFanPin, 255);
 }
 
 void rotateServoRight() {
-  analogWrite(liftFanPin, 255);
-  analogWrite(thrustFanPin, 185);
-  myServo.write(160);
+  analogWrite(liftFanPin, 230);
+  analogWrite(thrustFanPin, 160);
+  myServo.write(170);
 }
 
 void rotateServoLeft() {
-  analogWrite(liftFanPin, 255);
-  analogWrite(thrustFanPin, 185);
-  myServo.write(20);
+  analogWrite(liftFanPin, 230);
+  analogWrite(thrustFanPin, 160);
+  myServo.write(10);
 }
 
 void Go_Straight(float distance){
     
-  if (60 <= distance && distance < 65){
-    Serial.println("slowing down");
+  if (70 <= distance && distance < 75){
     analogWrite(liftFanPin, 0);
     delay(500);
-  }
-  else if (distance <= 65 && mpu.getAccAngleX() < 0.5){
-    startUp();
   }
   else{
     // puts every thing on max settings
@@ -224,40 +231,47 @@ void Go_Straight(float distance){
 }
 
 boolean isPanic(float previousyaw) {
-  Serial.println("-----acc values------");
-  Serial.println(getAngle());
-  Serial.println("---------------------");
   
   return abs(getAngle() - previousyaw) <= 1;
 }
 
 bool isRotating(float initialYAW, bool isRotatingRight) {
   float YAW = getAngle();
-  Serial.println("isRotating");
-  Serial.println(initialYAW);
-  Serial.println(YAW);
-  if (-45 <= initialYAW && initialYAW < 45) {
-    return isRotatingRight ? YAW >= -70 : YAW <= 70;
+  if (315 <= initialYAW || initialYAW < 45) {
+    Serial.println("315 <= initialYAW || initialYAW < 45");
+    Serial.println("=======YAW=======");
+    Serial.println(YAW);
+    Serial.println("=================");
+    return isRotatingRight ? YAW >= 290 : YAW <= 70;
   } else if (45 <= initialYAW && initialYAW < 135) {
-    return isRotatingRight ? YAW >= 15 : YAW <= 160;
-  } else if (135 <= initialYAW || initialYAW < -135) {
-    return isRotatingRight ? !(YAW > 0 && YAW <= 105) : !(-105 <= YAW && YAW < 0);
-  } else if (-45 > initialYAW && initialYAW >= -135) {
-    return isRotatingRight ? YAW >= -160 : YAW <= -15;
+    Serial.println("45 <= initialYAW && initialYAW < 135");
+    Serial.println("=======YAW=======");
+    Serial.println(YAW);
+    Serial.println("=================");
+    return isRotatingRight ? YAW >= 15 : YAW <= 165;
+  } else if (135 <= initialYAW && initialYAW < 225) {
+     Serial.println("135 <= initialYAW && initialYAW < 225");
+     Serial.println("=======YAW=======");
+    Serial.println(YAW);
+    Serial.println("=================");
+    return isRotatingRight ? YAW >= 110 : YAW <= 250;
+  } else if (315 > initialYAW && initialYAW >= 225) {
+    Serial.println("315 > initialYAW && initialYAW >= 225");
+    Serial.println("=======YAW=======");
+    Serial.println(YAW);
+    Serial.println("=================");
+    return isRotatingRight ? YAW >= 195 : YAW <= 350;
   }
   return false;
 }
-
 void turnRight(float initialYAW) {
+  Serial.println("right");
   float YAW = initialYAW;
   rotateServoRight();
   long int stuckStartTime = millis();
   while (isRotating(initialYAW, true)) {
       if (isPanic(YAW)) {
-        Serial.println("Panic!!!! ");
-        Serial.println(millis() - stuckStartTime);
-        if (millis() - stuckStartTime > 3000) {
-          Serial.println("BREAKKKK");
+        if (millis() - stuckStartTime > 4000) {
           break;
         }
       } else {
@@ -271,15 +285,15 @@ void turnRight(float initialYAW) {
 }
 
 void turnLeft(float initialYAW) {
+  Serial.println("left");
   float YAW = initialYAW;
   rotateServoLeft();
   long int stuckStartTime = millis();
   while (isRotating(initialYAW, false)) {
       if (isPanic(YAW)) {
-        Serial.println("Panic!!!! ");
-        Serial.println(millis() - stuckStartTime);
+        
         if (millis() - stuckStartTime > 3000) {
-          Serial.println("BREAKKKK");
+          
           break;
         }
       } else {
@@ -291,3 +305,17 @@ void turnLeft(float initialYAW) {
   shutDown();
   delay(3000);
 }
+
+
+void print(float front, float side){
+  Serial.println("=======DISTANCE_VALUES======");
+  Serial.println("front and side values");
+  Serial.print(front);
+  Serial.print(", ");
+  Serial.print(side);
+  Serial.println("=======================");
+  Serial.println("==========ANGLE===========");
+  Serial.print("angle = ");
+  Serial.print(getAngle());
+  Serial.println("========================");
+  }
